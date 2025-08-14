@@ -1,6 +1,6 @@
-# I2C AI Chatbot
+#AI Chatbot
 
-An intelligent chatbot for i2cinc.com that scrapes website content and provides AI-powered responses to customer queries.
+An intelligent chatbot  that scrapes website content and provides AI-powered responses to customer queries.
 
 ## 🚀 Features
 
