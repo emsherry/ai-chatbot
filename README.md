@@ -4,7 +4,7 @@ An intelligent chatbot  that scrapes website content and provides AI-powered res
 
 ## 🚀 Features
 
-- **Web Scraping**: Automatically scrapes and indexes content from i2cinc.com
+- **Web Scraping**: Automatically scrapes and indexes content from any website specified
 - **AI-Powered Responses**: Uses advanced language models to provide intelligent answers
 - **Real-time Chat**: Interactive chat interface with typing indicators and quick actions
 - **Vector Search**: Efficient semantic search using ChromaDB for document retrieval
