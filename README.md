@@ -123,38 +123,6 @@ python run.py
 ### Scrape Endpoints
 - `POST /api/v1/scrape` - Manually trigger website scraping
 
-## 🔧 Configuration
-
-### Environment Variables
-
-#### Backend (.env)
-```bash
-# API Configuration
-APP_NAME=I2C AI Chatbot
-ENVIRONMENT=development
-API_V1_PREFIX=/api/v1
-
-# CORS
-CORS_ORIGINS=["http://localhost:3000", "http://localhost:3001"]
-
-# Scraping
-BASE_URL=https://i2cinc.com
-MAX_SCRAPE_PAGES=50
-SCRAPE_DELAY=1
-
-# Vector Store
-CHROMA_PERSIST_DIRECTORY=./chroma_db
-CHROMA_COLLECTION_NAME=i2c_documents
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
-```
-
-#### Frontend (.env)
-```bash
-REACT_APP_API_URL=http://localhost:8000/api/v1
-```
 
 ## 🧪 Testing
 
