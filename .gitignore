@@ -135,3 +135,5 @@ models/
 # ========================
 Dockerfile*
 docker-compose.yml
+gh-actions-deploy
+gh-actions-deploy.pub
