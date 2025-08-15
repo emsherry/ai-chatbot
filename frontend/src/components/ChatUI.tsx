@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -7,9 +7,13 @@ import {
   Fade,
   Alert,
   Chip,
+  Zoom,
+  Slide,
 } from '@mui/material';
 import {
   Send as SendIcon,
+  ContentCopy as CopyIcon,
+  VolumeUp as VolumeIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { chatApi, ChatMessage, ChatQueryRequest, ChatQueryResponse } from '../services/api';
@@ -32,6 +36,7 @@ const ChatContainer = styled(GlassContainer)(({ theme }) => ({
   background: 'rgba(255, 255, 255, 0.05)',
   backdropFilter: 'blur(20px)',
   border: '1px solid rgba(255, 255, 255, 0.1)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
 }));
 
 const MessagesContainer = styled(Box)(({ theme }) => ({
@@ -39,6 +44,18 @@ const MessagesContainer = styled(Box)(({ theme }) => ({
   overflowY: 'auto',
   padding: theme.spacing(3),
   background: 'transparent',
+  scrollBehavior: 'smooth',
+  '&::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: '4px',
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.6) 0%, rgba(0, 188, 212, 0.6) 100%)',
+    borderRadius: '4px',
+  },
 }));
 
 const InputContainer = styled(Box)(({ theme }) => ({
@@ -51,6 +68,11 @@ const InputContainer = styled(Box)(({ theme }) => ({
   background: 'rgba(255, 255, 255, 0.08)',
   backdropFilter: 'blur(12px)',
   border: '1px solid rgba(255, 255, 255, 0.1)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  '&:hover': {
+    background: 'rgba(255, 255, 255, 0.12)',
+    transform: 'translateY(-1px)',
+  },
 }));
 
 const ChatUI: React.FC = () => {
