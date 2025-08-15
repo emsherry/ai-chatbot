@@ -3,7 +3,7 @@ name: Deploy AI Chatbot to EC2
 on:
   push:
     branches:
-      - dev-updates
+      - ec2-backup
 
 jobs:
   deploy:
@@ -31,8 +31,8 @@ jobs:
 
             # Pull latest code
             git fetch origin
-            git checkout dev-updates
-            git reset --hard origin/dev-updates
+            git checkout ec2-backup
+            git reset --hard origin/ec2-backup
 
             # Rebuild & restart only backend and frontend
             docker-compose build backend frontend
