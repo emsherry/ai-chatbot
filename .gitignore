@@ -126,4 +126,4 @@ models/
 *.iso
 *.dmg
 gh-actions-deploy
-gh-actions-deploy.pub
+gh-actions-deploy
