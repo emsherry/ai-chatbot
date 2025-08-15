@@ -1,4 +1,6 @@
+# ========================
 # Python
+# ========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,14 +30,16 @@ ENV/
 env.bak/
 venv.bak/
 
-# Environment variables
+# Environment variables (never push secrets)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+*.key
+*.pem
 
-# Database
+# Database / storage
 *.db
 *.sqlite3
 *.sqlite
@@ -48,7 +52,7 @@ backups/
 logs/
 *.log.*
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
@@ -106,7 +110,7 @@ dmypy.json
 *.backup
 *.old
 
-# Models
+# Models / ML
 models/
 *.pkl
 *.joblib
@@ -125,3 +129,9 @@ models/
 *.7z
 *.iso
 *.dmg
+
+# ========================
+# Docker & EC2-specific files (never push)
+# ========================
+Dockerfile*
+docker-compose.yml
