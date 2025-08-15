@@ -125,3 +125,5 @@ models/
 *.7z
 *.iso
 *.dmg
+gh-actions-deploy
+gh-actions-deploy.pub
