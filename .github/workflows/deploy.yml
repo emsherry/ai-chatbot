@@ -10,31 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Setup SSH with your private key
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      # Step 3: Deploy to EC2
-      - name: Run deploy script on EC2
+      - name: Determine changed service
+        id: changes
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+          SERVICE=""
+          if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
+            SERVICE="frontend"
+          elif echo "$CHANGED_FILES" | grep -q '^backend/'; then
+            SERVICE="backend"
+          fi
+
+          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+
+      - name: Deploy to EC2
+        if: steps.changes.outputs.service != ''
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             set -e
+            cd ~/ai-chatbot
 
-            # Go to your project folder
-            cd ~/ai-chatbot || exit
-
-            # Pull latest code
+            # Get latest code
             git fetch origin
             git checkout ec2-backup
             git reset --hard origin/ec2-backup
 
-            # Rebuild & restart only backend and frontend
-            docker-compose build backend frontend
-            docker-compose up -d backend frontend
+            SERVICE="${{ steps.changes.outputs.service }}"
+
+            if [ -n "\$SERVICE" ]; then
+              echo "Rebuilding and restarting only: \$SERVICE"
+
+              # Stop and remove old container + image
+              docker-compose stop \$SERVICE || true
+              docker-compose rm -f \$SERVICE || true
+              docker image prune -f
+
+              # Build and start fresh
+              docker-compose build \$SERVICE
+              docker-compose up -d \$SERVICE
+            else
+              echo "No matching service to deploy."
+            fi
           EOF
