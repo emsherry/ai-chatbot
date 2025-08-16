@@ -23,6 +23,7 @@ import MessageAvatar from './MessageAvatar';
 import GlassContainer from './GlassContainer';
 import EnhancedQuickActions from './EnhancedQuickActions';
 import '../styles/glassmorphism.css';
+import '../styles/enhanced-ui.css';
 
 const ChatContainer = styled(GlassContainer)(({ theme }) => ({
   display: 'flex',
