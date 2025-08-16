@@ -10,17 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout with enough history
+      # Step 1: Checkout with full history
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # fetch all history so HEAD~1 always exists
+          fetch-depth: 0  # fetch all commits so HEAD~1 exists
 
-      # Step 2: Determine which service changed
-      - name: Determine changed service
+      # Step 2: Determine changed services
+      - name: Determine changed services
         id: changes
         run: |
-          # Check if we have at least 2 commits
+          # If we have more than 1 commit, get diff between last 2
           if [ "$(git rev-list --count HEAD)" -gt 1 ]; then
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
           else
@@ -28,18 +28,19 @@ jobs:
             CHANGED_FILES=$(git ls-files)
           fi
 
-          SERVICE=""
+          SERVICES=""
           if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
-            SERVICE="frontend"
-          elif echo "$CHANGED_FILES" | grep -q '^backend/'; then
-            SERVICE="backend"
+            SERVICES="$SERVICES frontend"
+          fi
+          if echo "$CHANGED_FILES" | grep -q '^backend/'; then
+            SERVICES="$SERVICES backend"
           fi
 
-          if [ -z "$SERVICE" ]; then
-            echo "No frontend or backend changes detected, skipping."
+          if [ -z "$SERVICES" ]; then
+            echo "No frontend or backend changes detected."
           fi
 
-          echo "service=$SERVICE" >> $GITHUB_OUTPUT
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
 
       # Step 3: Setup SSH
       - name: Setup SSH
@@ -49,22 +50,35 @@ jobs:
 
       # Step 4: Deploy to EC2
       - name: Deploy to EC2
-        if: steps.changes.outputs.service != ''
+        if: steps.changes.outputs.services != ''
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} bash << EOF
             set -e
 
             cd ~/ai-chatbot
 
+            # Sync with GitHub branch
             git fetch origin
             git checkout ec2-backup
             git reset --hard origin/ec2-backup
 
-            SERVICE="${{ steps.changes.outputs.service }}"
+            # Deploy only the changed services
+            for SERVICE in ${{ steps.changes.outputs.services }}; do
+              echo "Deploying service: \$SERVICE"
 
-            echo "Rebuilding only: $SERVICE"
-            docker-compose rm -sf \$SERVICE
-            docker image prune -f
-            docker-compose build \$SERVICE
-            docker-compose up -d \$SERVICE
+              # Remove old container if exists
+              if docker ps -a --format '{{.Names}}' | grep -q "\$SERVICE"; then
+                docker-compose rm -sf \$SERVICE
+              fi
+
+              # Remove dangling images
+              docker image prune -f
+
+              # Build & start service
+              docker-compose build \$SERVICE
+              docker-compose up -d \$SERVICE
+            done
+
+            # Optional: Remove unused images/containers to avoid clutter
+            docker system prune -f
           EOF
