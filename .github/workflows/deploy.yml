@@ -10,19 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout with enough history
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+          fetch-depth: 0  # fetch all history so HEAD~1 always exists
 
+      # Step 2: Determine which service changed
       - name: Determine changed service
         id: changes
         run: |
-          # Get list of changed files
-          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          # Check if we have at least 2 commits
+          if [ "$(git rev-list --count HEAD)" -gt 1 ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          else
+            # First commit — assume everything changed
+            CHANGED_FILES=$(git ls-files)
+          fi
 
           SERVICE=""
           if echo "$CHANGED_FILES" | grep -q '^frontend/'; then
@@ -31,34 +35,36 @@ jobs:
             SERVICE="backend"
           fi
 
+          if [ -z "$SERVICE" ]; then
+            echo "No frontend or backend changes detected, skipping."
+          fi
+
           echo "service=$SERVICE" >> $GITHUB_OUTPUT
 
+      # Step 3: Setup SSH
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      # Step 4: Deploy to EC2
       - name: Deploy to EC2
         if: steps.changes.outputs.service != ''
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
+
             cd ~/ai-chatbot
 
-            # Get latest code
             git fetch origin
             git checkout ec2-backup
             git reset --hard origin/ec2-backup
 
             SERVICE="${{ steps.changes.outputs.service }}"
 
-            if [ -n "\$SERVICE" ]; then
-              echo "Rebuilding and restarting only: \$SERVICE"
-
-              # Stop and remove old container + image
-              docker-compose stop \$SERVICE || true
-              docker-compose rm -f \$SERVICE || true
-              docker image prune -f
-
-              # Build and start fresh
-              docker-compose build \$SERVICE
-              docker-compose up -d \$SERVICE
-            else
-              echo "No matching service to deploy."
-            fi
+            echo "Rebuilding only: $SERVICE"
+            docker-compose rm -sf \$SERVICE
+            docker image prune -f
+            docker-compose build \$SERVICE
+            docker-compose up -d \$SERVICE
           EOF
