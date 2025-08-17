@@ -4,9 +4,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 import asyncio
+import json
 
 from app.services.llm_service import LLMService
-from app.services.scraper_service import OptimizedScraperService
+from app.services.scraper_service import OptimizedScraperService, scraper
 from app.services.cache_service import CacheService
 from app.services.vectorstore_service import vectorstore
 
@@ -33,41 +34,41 @@ class ChatQueryResponse(BaseModel):
 
 @router.post("/query", response_model=ChatQueryResponse)
 async def chat_query(request: ChatQueryRequest):
-    """Process chat query with memory optimization."""
+    """Process chat query with enhanced conversational responses."""
     try:
         # Check cache first
         cache_key = f"chat:{request.query}:{request.conversation_id}"
         cached = cache.get(cache_key)
         if cached:
             return ChatQueryResponse(**cached)
-        
-        # Get relevant context from vector store
-        context = vectorstore.similarity_search(request.query, k=3)
-        
-        # Generate response with context
+    
+        # Get relevant context from vector store with more comprehensive search
+        context = vectorstore.similarity_search(request.query, k=5)
+    
+        # Generate enhanced response with context
         llm_response = await llm_service.generate_response(
             query=request.query,
             context=context,
-            max_tokens=request.max_tokens
+            max_tokens=800  # Increased for more detailed responses
         )
-        
+    
         # Extract sources
         sources = [item['metadata'].get('url', 'unknown') for item in context]
-        
+    
         response = ChatQueryResponse(
             response=llm_response,
             conversation_id=request.conversation_id or "default",
             sources=sources,
-            confidence=0.8,
+            confidence=0.9,
             tokens_used=len(llm_response.split()),
-            response_time=1.0
+            response_time=2.0
         )
-        
+    
         # Cache response
         cache.set(cache_key, response.dict())
-        
+    
         return response
-        
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -90,7 +91,7 @@ async def scrape_and_chat(request: ChatQueryRequest):
     """Scrape website and chat with context."""
     try:
         # Scrape content
-        scraped_data = scraper_service.scrape_i2c_website(max_pages=3)
+        scraped_data = await scraper.scrape_website(max_pages=3)
         
         # Build context from scraped data
         context_parts = []

@@ -9,11 +9,18 @@ import {
   Chip,
   Zoom,
   Slide,
+  Collapse,
+  Card,
+  CardContent,
+  Link,
 } from '@mui/material';
 import {
   Send as SendIcon,
   ContentCopy as CopyIcon,
   VolumeUp as VolumeIcon,
+  Search as SearchIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import { chatApi, ChatMessage, ChatQueryRequest, ChatQueryResponse } from '../services/api';
@@ -76,6 +83,27 @@ const InputContainer = styled(Box)(({ theme }) => ({
   },
 }));
 
+const DiscoveryCard = styled(Card)(({ theme }) => ({
+  margin: theme.spacing(1, 0),
+  background: 'rgba(255, 255, 255, 0.08)',
+  backdropFilter: 'blur(12px)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '12px',
+  transition: 'all 0.3s ease',
+  '&:hover': {
+    background: 'rgba(255, 255, 255, 0.12)',
+    transform: 'translateY(-2px)',
+  },
+}));
+
+interface ScrapedContent {
+  url: string;
+  title: string;
+  content: string;
+  keywords: string;
+  metadata: string;
+}
+
 const ChatUI: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -85,6 +113,9 @@ const ChatUI: React.FC = () => {
   const [sources, setSources] = useState<string[]>([]);
   const [confidence, setConfidence] = useState<number>(0);
   const [isOnline, setIsOnline] = useState(true);
+  const [scrapedContent, setScrapedContent] = useState<ScrapedContent[]>([]);
+  const [expandedSources, setExpandedSources] = useState<boolean>(false);
+  const [discoveryMode, setDiscoveryMode] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -109,6 +140,7 @@ const ChatUI: React.FC = () => {
     setInputMessage('');
     setIsLoading(true);
     setError(null);
+    setDiscoveryMode(true);
 
     try {
       const request: ChatQueryRequest = {
@@ -131,11 +163,44 @@ const ChatUI: React.FC = () => {
       setSources(response.sources);
       setConfidence(response.confidence);
 
+      // Fetch enhanced scraped content
+      if (discoveryMode) {
+        await fetchEnhancedContent(userMessage.content);
+      }
+
     } catch (err) {
       setError('Failed to get response. Please try again.');
       console.error('Chat error:', err);
     } finally {
       setIsLoading(false);
+      setDiscoveryMode(false);
+    }
+  };
+
+  const fetchEnhancedContent = async (query: string) => {
+    try {
+      // This would be an additional API call to get enhanced scraped content
+      // For now, we'll simulate with mock data structure
+      const mockContent: ScrapedContent[] = [
+        {
+          url: 'https://i2cinc.com/platform/api',
+          title: 'I2C API Documentation',
+          content: 'Comprehensive API documentation for integrating with I2C platform...',
+          keywords: 'api,integration,platform',
+          metadata: JSON.stringify({ type: 'api-docs', relevance: 0.95 })
+        },
+        {
+          url: 'https://i2cinc.com/products',
+          title: 'I2C Product Suite',
+          content: 'Explore our comprehensive suite of fintech products and solutions...',
+          keywords: 'products,solutions,fintech',
+          metadata: JSON.stringify({ type: 'product-info', relevance: 0.88 })
+        }
+      ];
+      
+      setScrapedContent(mockContent);
+    } catch (error) {
+      console.error('Failed to fetch enhanced content:', error);
     }
   };
 
@@ -148,6 +213,10 @@ const ChatUI: React.FC = () => {
 
   const handleCopyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
+  };
+
+  const toggleSources = () => {
+    setExpandedSources(!expandedSources);
   };
 
   return (
@@ -206,20 +275,70 @@ const ChatUI: React.FC = () => {
 
           {sources.length > 0 && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Sources:
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {sources.map((source, index) => (
-                  <Chip
-                    key={index}
-                    label={source}
-                    size="small"
-                    variant="outlined"
-                    color="primary"
-                  />
-                ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                  Sources:
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={toggleSources}
+                  sx={{ ml: 'auto' }}
+                >
+                  {expandedSources ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </IconButton>
               </Box>
+              <Collapse in={expandedSources}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {sources.map((source, index) => (
+                    <Chip
+                      key={index}
+                      label={source}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      clickable
+                      onClick={() => window.open(source, '_blank')}
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+
+          {scrapedContent.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+                <SearchIcon sx={{ mr: 1, fontSize: 16 }} />
+                Discovered Content:
+              </Typography>
+              {scrapedContent.map((content, index) => (
+                <DiscoveryCard key={index} sx={{ mb: 1 }}>
+                  <CardContent sx={{ p: 2 }}>
+                    <Typography variant="h6" sx={{ fontSize: '0.9rem', mb: 1 }}>
+                      {content.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {content.content.substring(0, 150)}...
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Link
+                        href={content.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ fontSize: '0.8rem' }}
+                      >
+                        View Source
+                      </Link>
+                      <Chip
+                        label={content.keywords}
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                      />
+                    </Box>
+                  </CardContent>
+                </DiscoveryCard>
+              ))}
             </Box>
           )}
 

@@ -1,182 +1,142 @@
-"""Scraping API endpoints."""
+"""Enhanced scraping endpoints for i2c content discovery."""
 
-import time
-from typing import List
-
-from fastapi import APIRouter, HTTPException, status
-from loguru import logger
-
-from app.models import (
-    ScrapeRequest,
-    ScrapeResponse,
-    ErrorResponse,
-)
+from fastapi import APIRouter, HTTPException, Query
+from typing import List, Optional
 from app.services.scraper_service import scraper
 from app.services.lightweight_crawler import lightweight_crawler
-from app.services.vectorstore_service import vectorstore
+from pydantic import BaseModel
 
-router = APIRouter(prefix="/scrape", tags=["scrape"])
+router = APIRouter()
 
+class ScrapingRequest(BaseModel):
+    url: Optional[str] = None
+    max_pages: int = 10
+    max_depth: int = 3
+    include_keywords: bool = True
 
-@router.post(
-    "/",
-    response_model=ScrapeResponse,
-    status_code=status.HTTP_200_OK,
-    responses={
-        400: {"model": ErrorResponse, "description": "Bad request"},
-        500: {"model": ErrorResponse, "description": "Internal server error"}
-    }
-)
-async def scrape_website(
-    request: ScrapeRequest
-) -> ScrapeResponse:
-    """Scrape website content and update vector store."""
-    start_time = time.time()
-    
+class ScrapingResponse(BaseModel):
+    content: List[dict]
+    total_found: int
+    sources: List[str]
+    keywords: List[str]
+    metadata: dict
+
+@router.post("/scrape-enhanced", response_model=ScrapingResponse)
+async def scrape_enhanced(request: ScrapingRequest):
+    """Enhanced scraping with i2c content discovery."""
     try:
-        logger.info(f"Starting scrape for: {request.url}")
+        # Use enhanced scraper
+        content = await scraper.scrape_website(
+            max_pages=request.max_pages,
+            base_url=request.url
+        )
         
-        # Use the new lightweight crawler for inner link discovery
-        async with lightweight_crawler as crawler:
-            scraped_content = await crawler.get_real_time_data(
-                start_url=request.url
-            )
+        # Extract unique sources
+        sources = list(set(item['url'] for item in content))
         
-        if not scraped_content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No content found to scrape"
-            )
+        # Extract keywords
+        keywords = []
+        for item in content:
+            if item.get('keywords'):
+                keywords.extend(item['keywords'].split(','))
         
-        # Process and add to vector store
-        documents_processed = 0
-        errors = []
+        keywords = list(set(keywords))
         
-        for content in scraped_content:
-            try:
-                # Add to vector store
-                vectorstore.add_webpage(
-                    url=content["url"],
-                    content=content["content"],
-                    title=content["title"],
-                    metadata={
-                        "url": content["url"],
-                        "title": content["title"],
-                        "source": "enhanced_crawler"
-                    }
-                )
-                documents_processed += 1
-                
-            except Exception as e:
-                error_msg = f"Error processing {content['url']}: {str(e)}"
-                logger.error(error_msg)
-                errors.append(error_msg)
-        
-        return ScrapeResponse(
-            url=request.url,
-            pages_scraped=len(scraped_content),
-            documents_processed=documents_processed,
-            errors=errors,
-            processing_time=time.time() - start_time
+        return ScrapingResponse(
+            content=content,
+            total_found=len(content),
+            sources=sources,
+            keywords=keywords,
+            metadata={
+                "scraping_method": "enhanced",
+                "max_pages": request.max_pages,
+                "url": request.url or "https://i2cinc.com"
+            }
         )
         
     except Exception as e:
-        logger.error(f"Error during scraping: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.post(
-    "/enhanced",
-    response_model=ScrapeResponse,
-    status_code=status.HTTP_200_OK,
-    responses={
-        400: {"model": ErrorResponse, "description": "Bad request"},
-        500: {"model": ErrorResponse, "description": "Internal server error"}
-    }
-)
-async def scrape_website_enhanced(
-    request: ScrapeRequest
-) -> ScrapeResponse:
-    """Enhanced scraping with inner link discovery using lightweight crawler."""
-    start_time = time.time()
-    
+@router.post("/crawl-discovery", response_model=ScrapingResponse)
+async def crawl_discovery(
+    url: str = Query(..., description="URL to crawl"),
+    max_pages: int = Query(20, description="Maximum pages to crawl"),
+    max_depth: int = Query(2, description="Maximum crawl depth")
+):
+    """Advanced crawling with link discovery."""
     try:
-        logger.info(f"Starting enhanced scrape for: {request.url}")
+        # Use lightweight crawler
+        content = await lightweight_crawler.get_real_time_data(url)
         
-        # Use the new lightweight crawler for inner link discovery
-        async with lightweight_crawler as crawler:
-            scraped_content = await crawler.crawl_with_discovery(
-                start_url=request.url,
-                max_depth=2
-            )
+        # Filter and enhance content
+        enhanced_content = []
+        for item in content:
+            enhanced_content.append({
+                'url': item['url'],
+                'title': item['title'],
+                'content': item['content'],
+                'description': item['description'],
+                'keywords': item.get('keywords', ''),
+                'source': 'crawler',
+                'relevance_score': item.get('relevance_score', 0.5)
+            })
         
-        if not scraped_content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No content found to scrape"
-            )
+        sources = list(set(item['url'] for item in enhanced_content))
+        keywords = []
+        for item in enhanced_content:
+            if item.get('keywords'):
+                keywords.extend(item['keywords'].split(','))
         
-        # Process and add to vector store
-        documents_processed = 0
-        errors = []
+        keywords = list(set(keywords))
         
-        for content in scraped_content:
-            try:
-                # Add to vector store
-                vectorstore.add_webpage(
-                    url=content["url"],
-                    content=content["content"],
-                    title=content["title"],
-                    metadata={
-                        "url": content["url"],
-                        "title": content["title"],
-                        "source": "enhanced_crawler"
-                    }
-                )
-                documents_processed += 1
-                
-            except Exception as e:
-                error_msg = f"Error processing {content['url']}: {str(e)}"
-                logger.error(error_msg)
-                errors.append(error_msg)
-        
-        return ScrapeResponse(
-            url=request.url,
-            pages_scraped=len(scraped_content),
-            documents_processed=documents_processed,
-            errors=errors,
-            processing_time=time.time() - start_time
+        return ScrapingResponse(
+            content=enhanced_content,
+            total_found=len(enhanced_content),
+            sources=sources,
+            keywords=keywords,
+            metadata={
+                "scraping_method": "crawler",
+                "max_pages": max_pages,
+                "max_depth": max_depth,
+                "url": url
+            }
         )
         
     except Exception as e:
-        logger.error(f"Error during enhanced scraping: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.get(
-    "/stats",
-    response_model=dict,
-    status_code=status.HTTP_200_OK
-)
+@router.get("/scrape-stats")
 async def get_scraping_stats():
     """Get scraping statistics."""
     try:
-        stats = vectorstore.get_collection_stats()
+        scraper_stats = scraper.get_scraping_stats()
+        crawler_stats = lightweight_crawler.get_crawling_stats()
+        
         return {
-            "total_documents": stats["total_documents"],
-            "unique_sources": stats["unique_sources"],
-            "sources": stats["sources"]
+            "enhanced_scraper": scraper_stats,
+            "lightweight_crawler": crawler_stats,
+            "total_unique_urls": len(set(
+                list(scraper_stats.keys()) + list(crawler_stats.keys())
+            ))
         }
         
     except Exception as e:
-        logger.error(f"Error getting scraping stats: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/keywords")
+async def get_i2c_keywords():
+    """Get i2c-specific keywords for filtering."""
+    return {
+        "keywords": [
+            "i2c", "issuer", "processing", "card", "payment", "fintech",
+            "banking", "digital", "transformation", "loyalty", "marketing",
+            "platform", "api", "integration", "solution", "product",
+            "documentation", "guide", "tutorial", "case study", "whitepaper"
+        ],
+        "categories": {
+            "api": ["api", "documentation", "reference", "guide", "endpoint", "integration", "sdk"],
+            "product": ["product", "solution", "platform", "feature", "capability", "offering"],
+            "content": ["blog", "article", "news", "update", "announcement", "insights"],
+            "resources": ["whitepaper", "ebook", "report", "research", "study", "analysis"]
+        }
+    }

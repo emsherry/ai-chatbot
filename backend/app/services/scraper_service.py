@@ -19,9 +19,8 @@ class OptimizedScraperService:
         })
         self.scraped_urls = set()
         
-    async def scrape_website(self, max_pages: int = 5, base_url: str = None, delay: float = None) -> List[Dict[str, str]]:
+    def scrape_website(self, max_pages: int = 5, base_url: str = None, delay: float = None) -> List[Dict[str, str]]:
         """Scrape I2C website efficiently."""
-        # Use environment variables with fallbacks
         base_url = base_url or settings.SCRAPER_BASE_URL
         delay = delay or settings.SCRAPE_DELAY
         
@@ -32,6 +31,27 @@ class OptimizedScraperService:
                 f"{base_url}/platform/api",
                 f"{base_url}/issuer-processing",
                 f"{base_url}/platform/loyalty-marketing",
+                f"{base_url}/platform/api/",
+                f"{base_url}/platform/issuer-processing/",
+                f"{base_url}/platform/core-banking/",
+                f"{base_url}/platform/analytics/",
+                f"{base_url}/solutions/consumer-credit/",
+                f"{base_url}/solutions/commercial-credit/",
+                f"{base_url}/solutions/self-issuance/",
+                f"{base_url}/solutions/government-disbursement/",
+                f"{base_url}/solutions/cryptocurrency/",
+                f"{base_url}/solutions/buy-now-pay-later/",
+                f"{base_url}/solutions/payment-hub/",
+                f"{base_url}/services/implementation/",
+                f"{base_url}/services/fraud-management/",
+                f"{base_url}/services/program-management/",
+                f"{base_url}/services/migration-services/",
+                f"{base_url}/services/contact-center/",
+                f"{base_url}/team",
+                f"{base_url}/testimonials",
+                f"{base_url}/careers",
+                f"{base_url}/credit",
+                f"{base_url}/resource-kits",
                 f"{base_url}/services",
                 f"{base_url}/solutions",
                 f"{base_url}/products",
